@@ -1,0 +1,167 @@
+
+#include "./contracts/utils/Ownable.huff"
+#include "./contracts/utils/Address.huff"
+#include "./contracts/utils/Utils.huff"
+#include "./contracts/utils/HashMap.huff"
+
+/* Interface */
+#define function name() view returns (string)
+#define function symbol() view returns (string)
+#define function tokenURI(uint256) view returns (string)
+
+#define function mint(address,uint256,uint256,bytes) nonpayable returns ()
+#define function balanceOf(address,uint256) view returns (uint256)
+
+#define function owner() view returns (address)
+
+
+
+/* Event Signatures */
+#define constant TRANSFER_SINGLE_SIGNATURE = 0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62
+#define constant TRANSFER_BATCH_SIGNATURE = 0x13eb9248a9ef11cb06c98b58bfdc389b461152c8668d155983ad4e9d249a02a0
+#define constant APPROVAL_FOR_ALL_EVENT_SIGNATURE = 0x2ce3f86be9eea89ec6cccd2733d6b5d5cbf20f592201255984d0178f76d55757
+#define constant URI_EVENT_SIGNATURE = 0x6bb7ff708619ba0610cba295a58592e0451dee2622938c8755667688daf3529b
+
+/* Storage Slots */
+// Hard code these????? - save gas
+#define constant NAME_LOCATION = FREE_STORAGE_POINTER()
+#define constant SYMBOL_LOCATION = FREE_STORAGE_POINTER()
+#define constant OWNER_LOCATION = FREE_STORAGE_POINTER()
+#define constant BALANCE_LOCATION = FREE_STORAGE_POINTER()
+#define constant IS_APPROVED_FOR_ALL_LOCATION = FREE_STORAGE_POINTER()
+
+/* Constructor */
+#define macro CONSTRUCTOR() = takes(0) returns (0){
+    // Ownable
+    OWNABLE_CONSTRUCTOR()
+}
+
+/* View functions */
+#define macro BALANCE_OF() = takes(0) returns(0) {
+    0x24 calldataload                               // [tokenId]     // 0x04 ignores function selector
+    0x04 calldataload                               // [account]
+    // [BALANCE_LOCATION] 
+    LOAD_ELEMENT_FROM_KEYS(0x00) // <mem_ptr> is 0x0 <- no need for scratch space?>
+    0x00 mstore                                     // [] load into mem
+    0x20 0x00 return                                // [] return 32 bytes
+}
+
+
+#define macro NAME() = takes (0) returns (0) {
+    0x4855464645524331313535 0x00 mstore 
+    0x20 0x00 return                        // hufferc1155
+}
+
+#define macro SYMBOL() = takes (0) returns (0) {
+    0x4831313535 0x00 mstore
+    0x20 0x00 return
+}
+
+// address, tokenId, amount, data
+// TODO: include data in the call!
+#define macro MINT() = takes(0) returns (0){
+    ONLY_OWNER()
+
+    // get stuff for mint function
+
+    // increase the balance of the address # TODO: increment current balance
+    0x44 calldataload       // [amount]
+    0x24 calldataload       // [tokenId, amount]
+    0x04 calldataload       // [to, tokenId, amound]
+    STORE_ELEMENT_FROM_KEYS(0x00)
+
+    // emit transfer event
+    0x24 calldataload       // [tokenId]
+    0x00 mstore             // store tokenId for event
+
+    0x44 calldataload       // [amount]
+    0x00 mstore             // store amount for event
+    
+    0x04 calldataload       // [to]
+    0x00                    // [zero_address, to]
+    caller                  // [msg.sender, zero_address, to]
+    0x00 0x40
+    log3
+
+    // todo: safe transfer logic
+}
+
+
+// TODO: currently only owner is impemented - i do not have approved
+#define macro IS_OWNER_OR_APPROVED() = takes(0) returns(0){
+    0x04 calldataload caller eq owns jumpi
+        0x00 0x00 revert
+    owns:
+}
+
+// TODO: sub
+#define macro SAFE_SUB() = takes(0) returns(0){
+    // stack state: a b
+    // calling sub will create (a-b)
+    // if (b>a) we have integer underflow - throw an error
+    dup1 dup3 gt
+    // stack state: (b>a) a b
+    <throw_error_jump_label> jumpi
+    // stack state: a b
+    sub
+    // stack state: (a-b)
+}
+
+// (from, to, id, amount, data)
+#define macro SAFE_TRANSFER_FROM() = takes(0) returns (0) {
+    IS_OWNER_OR_APPROVED()
+
+    // TODO: get the current balance
+    // increase the balance of the address
+    0x24 calldataload               // [address]
+    0x44 calldataload               // [tokenId, address]
+    dup1                            // [tokenId, tokenId, address]
+    dup3                            // [tokenId, address, tokenId, address]
+    LOAD_ELEMENT_FROM_KEYS(0x00)    // [bal, tokenId, address]
+
+    // get the amount to transfer
+    0x64 calldataload               // [amount, bal, tokenId, address]
+
+
+
+    0x24 calldataload       // [to, tokenId, amount]
+    STORE_ELEMENT_FROM_KEYS(0x00)
+
+
+}
+
+#define macro OWNER() = takes(0) returns(0) {
+    OWNABLE_GET_OWNER()             // [owner]
+    0x00 mstore                     // place owner in memory and return
+    0x20 0x00 return
+}
+
+/* Main */
+#define macro MAIN() = takes(0) returns(0) {
+    0x00 calldataload 0xE0 shr      // [function selector on stack]
+    
+    dup1 0x95d89b41 eq symbol jumpi
+    dup1 0x06fdde03 eq getName jumpi
+    dup1 0x8da5cb5b eq owner jumpi
+    dup1 0x731133e9 eq mint jumpi
+    dup1 0x00fdd58e eq balanceOf jumpi 
+
+    // dup1 0x6352211e eq ownerOf jumpi
+
+    symbol:
+        SYMBOL()
+    getName:
+        NAME()
+    owner: 
+        OWNER()
+    mint:
+        MINT()
+    balanceOf:
+        BALANCE_OF()
+    transfer:
+        TRANSFER()
+    
+  
+}
+
+
