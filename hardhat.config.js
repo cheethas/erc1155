@@ -3,68 +3,122 @@ require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
-require("hardhat/config")
+require("hardhat/config");
+require("huff-debug");
 
 const fs = require("fs");
 const { execSync } = require("child_process");
 const glob = require("glob");
 const path = require("path");
+const { boolean } = require("hardhat/internal/core/params/argumentTypes");
 
-task("huff-debug")
-  .addPositionalParam("file")
-  .addPositionalParam("func")
-  .addPositionalParam("args")
-  .setAction(async ({file, func, args }, { run, config, artifacts, ethers }) => {
-    await run("compile");
-    await debug(file, func, args, config.huff, config.paths, artifacts, ethers);
-});
+// task("huff-debug")
+//   .addPositionalParam("file")
+//   .addPositionalParam("func")
+//   .addPositionalParam("args")
+//   // Optional Parameters - Defining hevm state - not implemented yet
+//   .addFlag("state", "Use maintained hevm state")
+//   .addFlag("reset", "Reset hevm state")
+   
+//   .setAction(async (params, { run, config, artifacts, ethers }) => {
+//     console.log(params)
+    
+//     await run("compile");
+
+//     await debug(params.file, params.func, params.args, config.huff, config.paths, artifacts, ethers);
+// });
 
 
-async function debug(file, func, args, huffConfig, paths, artifacts, ethers){ 
-  const config = {
-    hevmContractAddress: "0x0000000000000000000000000000000000000420",
-    hevmCaller: "0x0000000000000000000000000000000000000069"
-  }
+// async function debug(
+//   file, 
+//   func, 
+//   args, 
+//   flags,
+//   paths, 
+//   artifacts, 
+//   ethers // where tf is this type
+// ){ 
+//   // TODO: sanitizeConfig()
+//   const config = {
+//     hevmContractAddress: "0x0000000000000000000000000000000000000420",
+//     hevmCaller: "0x0000000000000000000000000000000000000069",
+//     statePath: "cache/huff_debug_hevm_state"
+//   }
 
-  // Get file name
-  const huffFiles = await getFiles(paths);
-  const target = huffFiles.find(hf => hf.includes(file)).replace(__dirname,"");
+//   // Get all files with .huff extension from the project
+//   const huffFiles = await getFiles(paths);
 
-  // get compiler artifact
-  const artifact =  fs.readFileSync(`${paths.artifacts}/${target}/${file}.json`, "utf-8")
-  const {abi, deployedBytecode} = JSON.parse(artifact);
+//   // Find provided [file] argument
+//   let target = huffFiles.find((hf) => {
+//       if (hf) return hf.includes(file)
+//       return false
+//     })
 
-  // Get contract
-  const contract = new ethers.Contract(config.hevmContractAddress, abi);
-  const tx = await contract.populateTransaction[func](...args.split(","));
+//   // TODO: syntactic abomination
+//   if (target) target = target.replace(__dirname,"")
+//   else throw new NomicLabsHardhatPluginError(PLUGIN_NAME, "Named file not found");
+    
+//   // get compiler artifact
+//   const artifact =  fs.readFileSync(`${paths.artifacts}/${target}/${file}.json`, "utf-8")
+//   const {abi, deployedBytecode} = JSON.parse(artifact);
 
-  // Command
-  const command = `hevm exec \
-  --code 0x${deployedBytecode} \
-  --address ${config.hevmContractAddress} \
-  --caller ${config.hevmCaller} \
-  --gas 0xffffffff \
-  --debug \
-  --calldata ${tx.data}`
+//   // Get contract and encoded transaction
+//   const contract = new ethers.Contract(config.hevmContractAddress, abi);
+//   const tx = await contract.populateTransaction[func](...args.split(","));
+
+//   runDebugger(deployedBytecode, tx.data, flags, config);
+// }
+
+
+// const runDebugger = (bytecode, calldata, flags, config) => {
+//   if (flags){
+//       if (flags.reset){
+//           resetStateRepo(config.statePath)
+//       }
+//   }
   
-  fs.writeFileSync("cache/hevmtemp", command);
+//     // Command
+//   const command = `hevm exec \
+//   --code 0x${bytecode} \
+//   --address ${config.hevmContractAddress} \
+//   --caller ${config.hevmCaller} \
+//   --gas 0xffffffff \
+//   ${(flags.state) ? ("--state "+ config.statePath + " \\")  : ""}
+//   --debug \
+//   --calldata ${calldata}`
+  
+//   // command is cached into a file as execSync has a limit on the command size that it can execute
+//   fs.writeFileSync("cache/hevmtemp", command);
  
-  // run the debugger
-  execSync("`cat cache/hevmtemp`", {stdio: ["inherit", "inherit", "inherit"]})
-}
+//   // run the debugger
+//   execSync("`cat cache/hevmtemp`", {stdio: ["inherit", "inherit", "inherit"]})
+// }
 
-/** Get an array of all files */
-const getFiles = async (paths) => {
-  // Return an array of all Huff files.
-  return glob.sync(path.join(paths.sources, "**", "*.huff"));
-};
 
-// You need to export an object to set up your config
-// Go to https://hardhat.org/config/ to learn more
+// /**Reset state repo
+//  * 
+//  * Hevm state is stored within a local git repository, to reset the state 
+//  * we must delete the repository then init a new one.
+//  * 
+//  * TODO: Windows compatibility
+//  * @param statePath 
+//  */
+// const resetStateRepo = (statePath) => {
+//     const removeStateCommand = `rm -rf ${statePath}`;
+//     const createStateRepository = `mkdir ${statePath}`;
+//     const initStateRepositoryCommand = `cd ${statePath} && git init && git commit --allow-empty -m "init" && cd ..`;
 
-/**
- * @type import('hardhat/config').HardhatUserConfig
- */
+//     execSync(removeStateCommand)
+//     execSync(createStateRepository)
+//     execSync(initStateRepositoryCommand)
+// }
+
+// /** Get an array of all files */
+// const getFiles = async (paths) => {
+//   // Return an array of all Huff files.
+//   return glob.sync(path.join(paths.sources, "**", "*.huff"));
+// };
+
 module.exports = {
   solidity: "0.8.0",
   huff: {

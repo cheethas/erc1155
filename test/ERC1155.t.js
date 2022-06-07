@@ -41,16 +41,29 @@ describe("ERC1155", function () {
     it("Can mint", async function(){
         console.log("mint tx")
         const minttx = await erc1155.populateTransaction.mint(owner.address, 1, 1, "0x00")
-        console.log(minttx.data)
         const mint = await erc1155.mint(owner.address, 1, 1, "0x00");
 
         // TODO: check for valid transferSingle event
-        // console.log("mint receipt")
-        // console.log(await ethers.provider.getTransactionReceipt(mint.hash))
 
         const balance = await erc1155.balanceOf(owner.address,1);
         expect(balance).to.equal(BigNumber.from("1"));
+    })
 
+    it("Can batch mint", async function(){
+        // const batchMintTx = await erc1155.populateTransaction.batchMint(owner.address, [1,2,3], [1,1,1], "0x00");
+        // console.log("batch mint tx");
+        // console.log(batchMintTx);
+
+        await erc1155.batchMint(owner.address, [1,2,3], [1,1,1], "0x00");
+        const bal1 = await erc1155.balanceOf(owner.address, 1)
+        const bal2 = await erc1155.balanceOf(owner.address, 2)
+        const bal3 = await erc1155.balanceOf(owner.address, 3)
+        
+        expect(bal1).to.equal(BigNumber.from("1"))
+        expect(bal2).to.equal(BigNumber.from("1"))
+        expect(bal3).to.equal(BigNumber.from("1"))
+
+        // TODO: check for bal
 
     })
 
@@ -89,5 +102,5 @@ describe("ERC1155", function () {
         expect(fromBalanceAfter).to.equal(BigNumber.from("0"));
     });
 
-    
+
 })

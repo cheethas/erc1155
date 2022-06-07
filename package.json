@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "hardhat-huff": "^1.0.19",
-    "huffc": "^0.0.23",
+    "huff-debug": "file:../huff-debug",
+    "huffc": "github:huff-language/huffc#master",
     "npm": "^8.3.0"
   }
 }
